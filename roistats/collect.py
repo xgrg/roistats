@@ -8,11 +8,11 @@ import logging as log
 def roistats_from_map(map_fp, atlas, func=np.mean):
      m = np.array(nib.load(map_fp).dataobj)
      n_labels = list(np.unique(atlas))
-     n_labels.remove(0)
-     label_values = [func(m[atlas==label]) for label in n_labels]
+     #n_labels.remove(0)
+     label_values = dict([(label, func(m[atlas==label])) for label in n_labels])
      return label_values
 
-def roistats_from_maps(maps_fp, atlas_fp, subjects=None, labels=None,
+def roistats_from_maps(maps_fp, atlas_fp, subjects=None,
 	func=np.mean, n_jobs=7):
      if len(subjects) != len(maps_fp):
          log.error('Images (%s) and subjects (%s) mismatch in size'
@@ -27,12 +27,7 @@ def roistats_from_maps(maps_fp, atlas_fp, subjects=None, labels=None,
      atlas = np.array(atlas_im.dataobj)
 
      roi_labels = list(np.unique(atlas))
-     roi_labels.remove(0)
-     if len(roi_labels) != len(labels):
-         log.error('%s has %s non-null labels and labels has a size of %s'
-                 %(atlas_fp, len(roi_labels), len(labels)))
-         log.error('labels found in atlas: %s'%str(roi_labels))
-         return None
+     #roi_labels.remove(0)
 
      # Run it on every image
      df = Parallel(n_jobs=n_jobs, verbose=1)(\
@@ -41,7 +36,7 @@ def roistats_from_maps(maps_fp, atlas_fp, subjects=None, labels=None,
 
      # Name rows and columns and return the DataFrame
      columns = [int(e) for e in roi_labels]
-     res = pd.DataFrame(df, columns=columns).rename(columns=labels)
+     res = pd.DataFrame(df, columns=columns)
 
      res['subject'] = xrange(len(maps_fp)) if subjects is None else subjects
      res = res.set_index('subject')
