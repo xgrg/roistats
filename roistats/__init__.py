@@ -10,4 +10,3 @@ def correct(df, model='roi ~ 1 + gender + age'): #educyears + apo' ):
     ycorr = np.mean(df[depvar]) - err
 
     return ycorr
-

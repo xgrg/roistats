@@ -7,6 +7,8 @@ def run(y, data, by='apoe',
      num_perm=100000):
 
     import pandas as pd
+    import numpy as np
+
     col = []
     df = pd.DataFrame(data, copy=True)
     grp = {contrast[0]:groups[contrast[0]], contrast[1]:groups[contrast[1]]}
@@ -21,12 +23,11 @@ def run(y, data, by='apoe',
     g = df.groupby(by='_group')
     values2 = [list(v[y].tolist()) for e,v in g]
 
-    import numpy as np
-    def run_permutation_test(pooled,sizeZ,sizeY,delta):
-	np.random.shuffle(pooled)
-	starZ = pooled[:sizeZ]
-	starY = pooled[-sizeY:]
-	return starZ.mean() - starY.mean()
+    def run_permutation_test(pooled, sizeZ, sizeY, delta):
+        np.random.shuffle(pooled)
+        starZ = pooled[:sizeZ]
+        starY = pooled[-sizeY:]
+        return starZ.mean() - starY.mean()
 
     z = np.array(values2[1])
     y = np.array(values2[0])
@@ -45,19 +46,19 @@ def run_all_contrasts(y, data, by='apoe', num_perm=100000):
     present_groups = []
     apoe = data[by].tolist()
     for e, v in groups.items():
-	if set(v).issubset(set(apoe)):
-	   present_groups.append(e)
+        if set(v).issubset(set(apoe)):
+           present_groups.append(e)
     contrasts = []
 
     for i1, i2 in itertools.combinations(present_groups, 2):
-	if len(set(groups[i1]).intersection(set(groups[i2]))) == 0 and \
-	   len(set(groups[i1])) + len(set(groups[i2])) == len(set(apoe)):
+        if len(set(groups[i1]).intersection(set(groups[i2]))) == 0 and \
+           len(set(groups[i1])) + len(set(groups[i2])) == len(set(apoe)):
              contrasts.append((i1,i2))
     log.warning(contrasts)
 
     results = {}
     for contrast in contrasts:
-	p = run(y, data, by=by, num_perm=num_perm, contrast=contrast, groups=groups)
-	results[contrast] = min(p, 1-p)
+        p = run(y, data, by=by, num_perm=num_perm, contrast=contrast, groups=groups)
+        results[contrast] = min(p, 1-p)
 
     return results
