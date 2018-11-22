@@ -4,7 +4,7 @@ from statsmodels.formula.api import ols
 
 
 def estimate(data, dv, by='apoe', interaction=None,
-	covariates = ['age', 'education'],
+        covariates = ['age', 'education'],
         groups = {'not HO': [0, 1], 'HO': [2], 'NC': [0], 'HT': [1], 'carriers': [1,2]},
         contrasts = {'recessive': ('HO', 'not HO'), 'dominant': ('carriers', 'NC'),
             'additive':('NC', 'HO')}):
@@ -34,22 +34,22 @@ def estimate(data, dv, by='apoe', interaction=None,
 
     def __build_contrast__(model, x1, x2, groups, by, interaction):
 
-	if interaction is None:
-	    s1 = ['%s * %s_%s'%(1.0/len(groups[x1]), by, each) \
-		    for each in groups[x1]]
-	    s2 = ['%s * %s_%s'%(1.0/len(groups[x2]), by, each) \
-		    for each in groups[x2]]
-	else:
-	    s1 = ['%s * %s_%s_%s'%(1.0/len(groups[x1]), by, each, interaction) \
-		    for each in groups[x1]]
-	    s2 = ['%s * %s_%s_%s'%(1.0/len(groups[x2]), by, each, interaction) \
-		    for each in groups[x2]]
+        if interaction is None:
+            s1 = ['%s * %s_%s'%(1.0/len(groups[x1]), by, each) \
+                    for each in groups[x1]]
+            s2 = ['%s * %s_%s'%(1.0/len(groups[x2]), by, each) \
+                    for each in groups[x2]]
+        else:
+            s1 = ['%s * %s_%s_%s'%(1.0/len(groups[x1]), by, each, interaction) \
+                    for each in groups[x1]]
+            s2 = ['%s * %s_%s_%s'%(1.0/len(groups[x2]), by, each, interaction) \
+                    for each in groups[x2]]
 
-	c = '%s - %s'%(' + '.join(s1), ' - '.join(s2))
-	T = fitted_model.t_test(c)
-	log.info('Used contrast: %s - p-value: %s'\
-		%(c, T.pvalue))
-	return T
+        c = '%s - %s'%(' + '.join(s1), ' - '.join(s2))
+        T = fitted_model.t_test(c)
+        log.info('Used contrast: %s - p-value: %s'\
+                %(c, T.pvalue))
+        return T
 
     for c_name, (x1, x2) in contrasts.items():
         T = __build_contrast__(fitted_model, x1, x2, groups, by, interaction)

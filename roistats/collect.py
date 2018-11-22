@@ -5,7 +5,7 @@ import pandas as pd
 from joblib import Parallel, delayed
 import logging as log
 
-def roistats_from_map(map_fp, atlas, func=np.mean):
+def _roistats_from_map(map_fp, atlas, func=np.mean):
      m = np.array(nib.load(map_fp).dataobj)
      n_labels = list(np.unique(atlas))
      #n_labels.remove(0)
@@ -31,7 +31,7 @@ def roistats_from_maps(maps_fp, atlas_fp, subjects=None,
 
      # Run it on every image
      df = Parallel(n_jobs=n_jobs, verbose=1)(\
-         delayed(roistats_from_map)(maps_fp[i], atlas, func)\
+         delayed(_roistats_from_map)(maps_fp[i], atlas, func)\
          for i in xrange(len(maps_fp)))
 
      # Name rows and columns and return the DataFrame
@@ -43,3 +43,5 @@ def roistats_from_maps(maps_fp, atlas_fp, subjects=None,
 
      return res
 
+def roistats_from_map(map_fp, atlas_fp,	func=np.mean):
+    return roistats_from_maps([map_fp], atlas_fp, func=func)

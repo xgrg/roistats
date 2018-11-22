@@ -5,6 +5,7 @@ from __init__ import correct
 
 
 default_palette = {
+    0: '#99ccff',
     'HO':'#ff9999',
     'HT':'#ffd699',
     'NC':'#99ccff',
@@ -16,17 +17,12 @@ default_palette = {
     'apoe33':'#99ccff',
     'carriers': '#ffd699'
     }
-default_palette2 = {(0.6500000000000001, 0.7999999999999999, 0.95, 1.0):'#0062e9',
-    (0.95, 0.8294117647058824, 0.6500000000000001, 1.0):'#f8a570',
-    (0.95, 0.6500000000000001, 0.6500000000000001, 1.0):'#eb6e6e'}
-
 
 def ttest_2samp(y, data, x1, x2, by, covariates, groups=None):
     import logging as log
     from statsmodels.formula.api import ols
 
     data_dummies = pd.get_dummies(data, columns=[by])
-    print data_dummies.head()
     if groups is None:
         groups = {x1:[x1], x2:[x2]}
 
@@ -81,7 +77,7 @@ def sort_groups(data, by, order):
     return d
 
 
-def boxplot_region(y, data, by='apoe', covariates=[], palette=None, groups=None):
+def boxplot(y, data, by='apoe', covariates=[], palette=None, groups=None):
     '''`y` should be a variable name, `data` is the data, `covariates` lists
     the various nuisance factors, `by` is the variable setting the different
     groups.'''
@@ -95,6 +91,11 @@ def boxplot_region(y, data, by='apoe', covariates=[], palette=None, groups=None)
         groups = list(set(data[by].tolist()))
     if isinstance(groups, list):
         groups = OrderedDict([(e, [e]) for e in groups])
+    all_groups = []
+    for k, each in groups.items():
+        all_groups.extend(each)
+    if set(all_groups).difference(set(data[by].tolist())):
+        raise Exception('%s not all found as %s groups'%(all_groups, by))
 
     # Create a column with a group index based on `groups`
     col = []
@@ -144,8 +145,6 @@ def boxplot_region(y, data, by='apoe', covariates=[], palette=None, groups=None)
     pvals = []
 
     for i1, i2 in itertools.combinations(groups.keys(), 2):
-        print df.head()
-        print i1,i2, by, covariates, groups
         pval = _plot_significance(df, i1, i2, by, covariates, groups)
         pvals.append((pval, (i1,i2)))
 
@@ -208,39 +207,42 @@ def lmplot(y, x, data, covariates=['gender', 'age'], hue='apoe', ylim=None,
     return df
 
 
-def _pivot(data, covariates, regions, region_colname, value_colname, index_colname):
+def _pivot(data, covariates, regions=None, region_colname='region', value_colname='value'):
 
     print regions
+    index_colname = '_ID'
+    if regions is None:
+        regions = set(data[region_colname].tolist())
     data2 = data[data[region_colname].isin(regions)]
     piv = pd.pivot_table(data2, values=value_colname, index=data2.index, columns=region_colname)
     subject_list = list(data2.index.tolist())
     data2[index_colname] = subject_list
     columns = [index_colname]
     columns.extend(covariates)
-    cov = pd.DataFrame(data2, columns=columns).drop_duplicates().set_index('subject')
+    cov = pd.DataFrame(data2, columns=columns).drop_duplicates().set_index(index_colname)
     piv = piv.join(cov)
 
     return piv
 
-def _unpivot(piv, regions, cov, index_colname='subject',
-        region_colname='structure', value_colname='value'):
+def _unpivot(piv, regions, region_colname='structure', value_colname='value'):
     table = []
+    index_colname = 'ID'
     for i, row in piv.iterrows():
         for region in regions:
             r = [i, region, row[region]]
             table.append(r)
     columns = [index_colname, region_colname, value_colname]
-    data = pd.DataFrame(table, columns=columns).set_index(index_colname).join(cov).dropna()
+    data = pd.DataFrame(table, columns=columns).set_index(index_colname)
     return data
 
-def hist_regions(data, regions=None, by='apoe', covariates=[], palette=None,
+def hist(data, regions=None, by=None, covariates=[], palette=None,
     zscores=False, ylim=None, region_colname='structure', value_colname='value',
-    index_colname='subject'):
+    hue_order=None, **kwargs):
     from matplotlib import pyplot as plt
 
     # check that all variables are found in columns
     # and if so collect covariables
-    columns = [by]
+    columns = [] if by is None else [by]
     columns.extend(covariates)
     for e in columns:
         if not e in data.columns.tolist():
@@ -250,8 +252,7 @@ def hist_regions(data, regions=None, by='apoe', covariates=[], palette=None,
     # first pivot region/value entries to individual columns
     if regions is None:
         regions = list(set(data[region_colname].tolist()))
-    piv = _pivot(data, columns, regions, region_colname, value_colname,
-        index_colname)
+    piv = _pivot(data, columns, regions, region_colname, value_colname)
 
     # correct these region/value entries in their new individual columns
     import itertools
@@ -259,16 +260,16 @@ def hist_regions(data, regions=None, by='apoe', covariates=[], palette=None,
 
     for region in regions:
         if len(covariates) != 0:
+            if not region in piv.columns.tolist():
+                raise Exception('%s not found in regions! (%s)'%(region, regions))
             piv = piv.rename(columns={region:'y'})
             piv['y'] = correct(piv, '%s ~ %s  + 1'%('y', '+'.join(covariates)))
-            groups = list(set(piv[by].tolist()))
-            for i1, i2 in itertools.combinations(groups, 2):
-                pval = ttest_2samp('y', piv, i1, i2, by, covariates)
-                import permutations as per
-                pval = per.run('y', piv, by='apoe', contrast=(i1,i2),
-                    groups= {i1:[i1], i2:[i2]})
-                pval = min(pval, 1 - pval)
-                pvals.append((region, (i1, i2), pval))
+
+            if not by is None:
+                groups = list(set(piv[by].tolist()))
+                for i1, i2 in itertools.combinations(groups, 2):
+                    pval = ttest_2samp('y', piv, i1, i2, by, covariates)
+                    pvals.append((region, (i1, i2), pval))
             piv = piv.rename(columns={'y':region})
         if zscores: # convert them to zscores if asked
             m = piv[region].mean()
@@ -276,8 +277,8 @@ def hist_regions(data, regions=None, by='apoe', covariates=[], palette=None,
             piv[region] = (piv[region] - m)/s
 
     # unpivot (rebuild the region/value two initial columns)
-    data2 = _unpivot(piv, regions, cov, index_colname, region_colname,
-                    value_colname)
+    data2 = _unpivot(piv, regions, region_colname, value_colname)
+    data2 = data2.join(cov).dropna()
 
     # create a `rank` column to control the order of the bars (following order
     # given by `regions`)
@@ -286,28 +287,22 @@ def hist_regions(data, regions=None, by='apoe', covariates=[], palette=None,
         col.append(regions.index(row[region_colname]))
     data2['rank'] = col
 
-    palette2 = None
     if palette is None:
         palette = default_palette
-        palette2 = default_palette2
+        if by is None:
+            data2['_by'] = 'NC'
+            by = '_by'
 
     # plot
-    bar = sns.barplot(x='rank', y =value_colname, hue=by, data=data2,
-        palette=palette, errwidth=2, ci=90)
-    plt.setp(bar.patches, linewidth=2)
+    bar = sns.catplot(x='rank', y =value_colname, hue=by, data=data2,
+        palette=palette, errwidth=2, ci=90, legend=not by=='_by', kind='bar',
+        hue_order=hue_order, **kwargs)
 
-    # tune colors and figure aesthetics
-    if not palette2 is None:
-        for patch in bar.patches:
-            clr = patch.get_facecolor()
-            patch.set_edgecolor(palette2[clr])
+    bar.set_xticklabels(rotation=45)
+    bar.set_xticklabels(regions)
 
-    for item in bar.get_xticklabels():
-        item.set_rotation(45)
-        item.set_fontname('Liberation Sans')
-    bar.set_xticklabels([e.replace('_',' ') for e in regions])
     if not ylim is None:
-        bar.set_ylim(ylim)
+        plt.ylim(ylim)
     ylabel = '%s %s'\
                 %(value_colname, {False:'',
                   True:' (corrected for %s)'\
