@@ -84,7 +84,7 @@ def boxplot(y, data, by='apoe', covariates=[], palette=None, groups=None):
 
     from collections import OrderedDict
 
-    if palette is None:
+    if palette == 'apoe':
         palette = default_palette
 
     if groups is None:
@@ -152,9 +152,15 @@ def boxplot(y, data, by='apoe', covariates=[], palette=None, groups=None):
 
 
 def lmplot(y, x, data, covariates=['gender', 'age'], hue='apoe', ylim=None,
-        savefig=None, facecolor='white', order=1, palette=None):
+        savefig=None, facecolor='white', order=1, palette=None, size=None,
+	s=20):
 
-    if palette is None:
+    from matplotlib import pyplot as plt
+    import matplotlib as mpl
+    plt.style.use('classic')
+    plt.style.use('seaborn')
+
+    if palette is 'apoe':
         palette = default_palette
 
     # Build a new table with only needed variables
@@ -180,9 +186,10 @@ def lmplot(y, x, data, covariates=['gender', 'age'], hue='apoe', ylim=None,
     if len(covariates) != 0:
         df[y]  = correct(df, '%s ~ %s  + 1'%(y, '+'.join(covariates)))
 
-    lm = sns.lmplot(x=x, y=y,  data=df, size=6.2, hue=hue, aspect=1.35, ci=90,
+    lm = sns.lmplot(x=x, y=y,  data=df, height=6.2, hue=hue, size=size, aspect=1.35, ci=90,
          truncate=True, sharex=False, sharey=False, order=order, palette=palette,
-         scatter_kws={'linewidths':0.5, 's':22, 'edgecolors':'#333333' },line_kws={'linewidth':3})
+         scatter_kws={'linewidths':0.5, 's':s, 'edgecolors':'#333333' },
+         line_kws={'linewidth':3}, legend=True)
 
     for patch in lm.axes[0,0].patches:
         clr = patch.get_facecolor()
@@ -198,18 +205,18 @@ def lmplot(y, x, data, covariates=['gender', 'age'], hue='apoe', ylim=None,
     ax[0,0].tick_params(labelsize=12)
     ax[0,0].set_ylabel('%s'%({False:'',
         True:' (corrected for %s)'\
-            %(' and '.join(covariates))}[len(covariates)!=0]))
+            %(' and '.join(covariates))}[len(covariates)!=0]), fontsize=13)
     ax[0,0].set_xlabel(x, fontsize=15, weight='bold')
-    lm.fig.suptitle(roi_name)
+    lm.fig.suptitle(roi_name, fontsize=15)
 
     if not savefig is None:
         lm.savefig(savefig, facecolor=facecolor)
     return df
 
 
-def _pivot(data, covariates, regions=None, region_colname='region', value_colname='value'):
+def _pivot(data, covariates=[], regions=None, region_colname='region', value_colname='value'):
 
-    print regions
+    #print regions
     index_colname = '_ID'
     if regions is None:
         regions = set(data[region_colname].tolist())
