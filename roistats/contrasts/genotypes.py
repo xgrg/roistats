@@ -4,13 +4,17 @@ from statsmodels.formula.api import ols
 
 
 def estimate(data, dv, by='apoe', interaction=None,
-        covariates = ['age', 'education'],
+        covariates = ['age', 'education'], first=True,
         groups = {'not HO': [0, 1], 'HO': [2], 'NC': [0], 'HT': [1], 'carriers': [1,2]},
         contrasts = {'recessive': ('HO', 'not HO'), 'dominant': ('carriers', 'NC'),
             'additive':('NC', 'HO')}):
         #contrasts = {'HT vs NC' : ('HT', 'NC')}):
-    data_dummies = pd.get_dummies(data, columns=[by])
-    dummy_columns = set(data_dummies.columns).difference(data.columns)
+    if not by is None:
+        data_dummies = pd.get_dummies(data, columns=[by])
+        dummy_columns = set(data_dummies.columns).difference(data.columns)
+    else:
+        data_dummies = data
+        dummy_columns = []
 
     #log.info('Dependent variable: %s'%dv)
     # Building the formula
@@ -20,9 +24,14 @@ def estimate(data, dv, by='apoe', interaction=None,
             col = '%s_%s'%(each, interaction)
             interaction_columns.append(col)
             data_dummies[col] = data_dummies[each] * data_dummies[interaction]
-        formula = '%s ~ %s%s + 1'%(dv, ' + '.join(interaction_columns),
-        #    ' + '.join(dummy_columns),
-          {False:'', True: ' + %s'%' + '.join(covariates)}[len(covariates)!=0])
+        if first:
+            formula = '%s ~ %s + %s%s + 1'%(dv, ' + '.join(interaction_columns),
+              ' + '.join(dummy_columns),
+              {False:'', True: ' + %s'%' + '.join(covariates)}[len(covariates)!=0])
+        else:
+            formula = '%s ~ %s%s + 1'%(dv, ' + '.join(interaction_columns),
+              #  ' + '.join(dummy_columns),
+              {False:'', True: ' + %s'%' + '.join(covariates)}[len(covariates)!=0])
     else:
         formula = '%s ~ %s%s + 1'%(dv, ' + '.join(dummy_columns),
           {False:'', True: ' + %s'%' + '.join(covariates)}[len(covariates)!=0])
@@ -51,8 +60,25 @@ def estimate(data, dv, by='apoe', interaction=None,
                 %(c, T.pvalue))
         return T
 
-    for c_name, (x1, x2) in contrasts.items():
-        T = __build_contrast__(fitted_model, x1, x2, groups, by, interaction)
+    def __build_contrast2__(model, x1):
+
+        T = fitted_model.t_test('%s'%x1)
+        log.info('Used contrast: %s - p-value: %s'\
+                %(x1, T.pvalue))
+        return T
+
+    for c_name in contrasts:
+        if isinstance(contrasts, dict):
+            x = contrasts[c_name]
+            if len(x) == 2:
+                x1, x2 = x
+                T = __build_contrast__(fitted_model, x1, x2, groups, by, interaction)
+            elif len(x) == 1 or isinstance(x, str):
+                T = __build_contrast2__(fitted_model, x)
+            else:
+                raise Exception('Incorrect contrast %s %s'%(c_name, x))
+        else: # isinstance(contrasts, list) or isinstance(contrasts, tuple):
+            T = __build_contrast2__(fitted_model, c_name)
         results[c_name] = T
 
     return results
