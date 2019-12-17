@@ -1,7 +1,7 @@
 import seaborn as sns
 import pandas as pd
 import logging as log
-from __init__ import correct
+from .__init__ import correct
 
 
 default_palette = {
@@ -52,8 +52,8 @@ def _plot_significance(data, x1, x2, by, covariates, groups):
     ymin2 = ymin - (ymax - ymin) * 1.5
 
     y, h, col = ymax2 + (ymax2 - ymin2)*0.07, (ymax2 - ymin2)*0.02, 'k'
-    i1 = groups.keys().index(x1)
-    i2 = groups.keys().index(x2)
+    i1 = list(groups.keys()).index(x1)
+    i2 = list(groups.keys()).index(x2)
 
     # shift the bar in y to avoid overlap between tests
     y = y + 4 * (i2 - i1 - 1) * h
@@ -72,7 +72,7 @@ def sort_groups(data, by, order):
     col = []
     d = pd.DataFrame(data, copy=True)
     d[by] = d[by].replace({group:order.index(group) for group in order})
-    d = d.sort_values(by=by)
+    #d = d.sort_values(by=by)
     d[by] = d[by].replace({order.index(group):group for group in order})
     return d
 
@@ -120,25 +120,26 @@ def boxplot(y, data, by='apoe', covariates=[], palette=None, groups=None):
     df = df.dropna()
     y = 'y'
     log.info('Dependent variable: %s'%roi_name)
-    df = sort_groups(df, by, groups.keys())
-
+    df = sort_groups(df, by, list(groups.keys()))
 
     # Correct depending variable for covariates (if any) (df is modified)
     if len(covariates) != 0:
         df[y]  = correct(df, '%s ~ %s  + 1'%(y, '+'.join(covariates)))
 
     box = sns.boxplot(x='_group', y='y', data=df, showfliers=False,
-                palette=palette)
-    #box = sns.violinplot(x='_group', y='roi', data=df, palette=palette)
-    #box.axes.set_yticklabels(['%.2e'%x for x in box.axes.get_yticks()])
+        palette=palette)
+    #box = sns.swarmplot(x='_group', y='y', data=df, palette=palette,
+    #    edgecolor='gray', color='0.8', linewidth=1)
+    box.axes.set_yticklabels(['%.2e'%x for x in box.axes.get_yticks()])
 
-    box.axes.set_xlabel('groups', fontsize=15, weight='bold')
+    box.axes.set_xlabel('%s groups'%by, fontsize=15, weight='bold')
     ylabel = '%s'\
                 %{False:'',
                   True:' (corrected for %s)'\
                      %(' and '.join(covariates))}[len(covariates)!=0]
     box.axes.set_ylabel(ylabel)
     box.set_title(roi_name)
+    #box.axes.set_ylim(1.5,4)
 
     # Estimate p-values and add them to the figure
     import itertools
@@ -185,11 +186,16 @@ def lmplot(y, x, data, covariates=['gender', 'age'], hue='apoe', ylim=None,
     # Correct depending variable for covariates (if any) (df is modified)
     if len(covariates) != 0:
         df[y]  = correct(df, '%s ~ %s  + 1'%(y, '+'.join(covariates)))
-
-    lm = sns.lmplot(x=x, y=y,  data=df, height=6.2, hue=hue, size=size, aspect=1.35, ci=90,
+    #    hue_order=[ 'Whole_hippocampus',
+    #    'Hippocampal_tail', 'molecular_layer_HP', 'CA1',
+    #    'presubiculum', 'subiculum',
+    #    'GC_ML_DG', 'CA4', 'fimbria','CA3', 'HATA',
+    #    'hippocampal_fissure', 'parasubiculum'],
+    lm = sns.lmplot(x=x, y=y,  data=df, height=6.2, hue=hue, size=size, aspect=1.35,
+         ci=95,
          truncate=True, sharex=False, sharey=False, order=order, palette=palette,
          scatter_kws={'linewidths':0.5, 's':s, 'edgecolors':'#333333' },
-         line_kws={'linewidth':3}, legend=True)
+         line_kws={'linewidth':1}, legend=True)
 
     for patch in lm.axes[0,0].patches:
         clr = patch.get_facecolor()
@@ -301,9 +307,10 @@ def hist(data, regions=None, by=None, covariates=[], palette=None,
             by = '_by'
 
     # plot
+    plt.figure(figsize=(30,12))
     bar = sns.catplot(x='rank', y =value_colname, hue=by, data=data2,
         palette=palette, errwidth=2, ci=90, legend=not by=='_by', kind='bar',
-        hue_order=hue_order, **kwargs)
+        hue_order=hue_order, capsize=.05, **kwargs)
 
     bar.set_xticklabels(rotation=45)
     bar.set_xticklabels(regions)

@@ -37,6 +37,7 @@ def estimate(data, dv, by='apoe', interaction=None,
           {False:'', True: ' + %s'%' + '.join(covariates)}[len(covariates)!=0])
     log.info('Used model for significance estimation: %s'%formula)
     fitted_model = ols(formula, data_dummies).fit()
+    #print('%s:%s'%(formula, fitted_model.rsquared))
 
     # Building the contrasts
     results = {}
@@ -55,14 +56,14 @@ def estimate(data, dv, by='apoe', interaction=None,
                     for each in groups[x2]]
 
         c = '%s - %s'%(' + '.join(s1), ' - '.join(s2))
-        T = fitted_model.t_test(c)
+        T = model.t_test(c)
         log.info('Used contrast: %s - p-value: %s'\
                 %(c, T.pvalue))
         return T
 
     def __build_contrast2__(model, x1):
 
-        T = fitted_model.t_test('%s'%x1)
+        T = model.t_test('%s'%x1)
         log.info('Used contrast: %s - p-value: %s'\
                 %(x1, T.pvalue))
         return T

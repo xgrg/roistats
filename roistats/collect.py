@@ -32,7 +32,7 @@ def roistats_from_maps(maps_fp, atlas_fp, subjects=None,
      # Run it on every image
      df = Parallel(n_jobs=n_jobs, verbose=1)(\
          delayed(_roistats_from_map)(maps_fp[i], atlas, func)\
-         for i in xrange(len(maps_fp)))
+         for i in range(0, len(maps_fp)))
 
      # Name rows and columns and return the DataFrame
      columns = [int(e) for e in roi_labels]
