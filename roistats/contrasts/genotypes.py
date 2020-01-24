@@ -33,8 +33,11 @@ def estimate(data, dv, by='apoe', interaction=None,
               #  ' + '.join(dummy_columns),
               {False:'', True: ' + %s'%' + '.join(covariates)}[len(covariates)!=0])
     else:
-        formula = '%s ~ %s%s + 1'%(dv, ' + '.join(dummy_columns),
-          {False:'', True: ' + %s'%' + '.join(covariates)}[len(covariates)!=0])
+
+        formula = '%s ~ %s%s%s + 1'%(dv, ' + '.join(dummy_columns),
+          {False:'', True: ' + '}[len(dummy_columns) != 0],
+          {False:'', True: ' + '.join(covariates)}[len(covariates)!=0])
+    
     log.info('Used model for significance estimation: %s'%formula)
     fitted_model = ols(formula, data_dummies).fit()
     #print('%s:%s'%(formula, fitted_model.rsquared))
