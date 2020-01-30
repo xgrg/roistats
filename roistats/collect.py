@@ -7,14 +7,16 @@ import logging as log
 
 def _roistats_from_map(map_fp, atlas, func=np.mean):
      m = np.array(nib.load(map_fp).dataobj)
+     assert(m.shape == atlas.shape)
      n_labels = list(np.unique(atlas))
      #n_labels.remove(0)
+     print(n_labels)
      label_values = dict([(label, func(m[atlas==label])) for label in n_labels])
      return label_values
 
 def roistats_from_maps(maps_fp, atlas_fp, subjects=None,
-	func=np.mean, n_jobs=7):
-     if len(subjects) != len(maps_fp):
+	   func=np.mean, n_jobs=7):
+     if not subjects is None and len(subjects) != len(maps_fp):
          log.error('Images (%s) and subjects (%s) mismatch in size'
                  %(len(maps_fp), len(subjects)))
          return None
@@ -28,6 +30,7 @@ def roistats_from_maps(maps_fp, atlas_fp, subjects=None,
 
      roi_labels = list(np.unique(atlas))
      #roi_labels.remove(0)
+     print(atlas.shape)
 
      # Run it on every image
      df = Parallel(n_jobs=n_jobs, verbose=1)(\
@@ -38,10 +41,10 @@ def roistats_from_maps(maps_fp, atlas_fp, subjects=None,
      columns = [int(e) for e in roi_labels]
      res = pd.DataFrame(df, columns=columns)
 
-     res['subject'] = xrange(len(maps_fp)) if subjects is None else subjects
+     res['subject'] = range(0, len(maps_fp)) if subjects is None else subjects
      res = res.set_index('subject')
 
      return res
 
 def roistats_from_map(map_fp, atlas_fp,	func=np.mean):
-    return roistats_from_maps([map_fp], atlas_fp, func=func)
+    return roistats_from_maps([map_fp], atlas_fp, func=func, )

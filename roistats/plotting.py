@@ -18,7 +18,10 @@ default_palette = {
     'carriers': '#ffd699',
     'AnTn':'#6495ed',
     'ApTn':'#544a8c',
-    'ApTp':'#850d04'
+    'ApTp':'#850d04',
+    True:'#c24d4a',
+    False: '#6495ed'
+
     }
 
 def ttest_2samp(y, data, x1, x2, by, covariates, groups=None):
@@ -131,7 +134,7 @@ def boxplot(y, data, by='apoe', covariates=[], palette=None, groups=None):
 
     box = sns.boxplot(x='_group', y='y', data=df, showfliers=False,
         palette=palette)
-    box = sns.swarmplot(x='_group', y='y', data=df, palette=palette,
+    box = sns.swarmplot(x='_group', y='y', data=df, #palette=palette,
         edgecolor='gray', color='0.8', linewidth=1)
     box.axes.set_yticklabels(['%.2e'%x for x in box.axes.get_yticks()])
 

@@ -7,9 +7,15 @@ def labels(fn='JHU-tracts.xml'):
     if not fsldir is None:
         jhudir = op.join(fsldir, 'data', 'atlases')
         x = open(op.join(jhudir, fn)).read()
-        d = dict([(int(e.split('index="')[1].split('"')[0]),
+        a = 0
+        d = {}
+        if fn in ['JHU-tracts.xml', 'HarvardOxford-Cortical.xml']:
+            a = 1
+            d[0] = 'unknown'
+
+        d.update(dict([(int(e.split('index="')[1].split('"')[0]) + a,
             e.split('>')[1].split('<')[0]) \
-                for e in x.split('\n') if e.startswith('<label')])
+                for e in x.split('\n') if e.startswith('<label')]))
         return d
 
 def atlas(name=None):
@@ -24,4 +30,4 @@ def atlas(name=None):
             print('Loading atlas %s'%name)
             import nibabel as nib
             fn = op.join(jhudir, 'JHU', name)
-            return nib.load(name)
+            return nib.load(fn)
