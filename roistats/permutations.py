@@ -34,7 +34,7 @@ def run(y, data, by='apoe',
 
     pooled = np.hstack([z,y])
     delta = z.mean() - y.mean()
-    estimates = np.array(map(lambda x: run_permutation_test(pooled,z.size,y.size,delta),range(num_perm)))
+    estimates = np.array(list(map(lambda x: run_permutation_test(pooled, z.size, y.size, delta), range(num_perm))))
     diffCount = len(np.where(estimates <=delta)[0])
     hat_asl_perm = 1.0 - (float(diffCount)/float(num_perm))
 
