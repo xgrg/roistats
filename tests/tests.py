@@ -84,7 +84,7 @@ class RunThemAll(unittest.TestCase):
         from nilearn import plotting as nip
         from nilearn import image
         from nilearn import datasets
-        from roistats import jhu, plotting
+        from roistats import atlases, plotting
         import nibabel as nib
         import random
         import numpy as np
@@ -93,7 +93,16 @@ class RunThemAll(unittest.TestCase):
 
         atlas = datasets.load_mni152_brain_mask()
         atlas_fp = datasets.fetch_atlas_harvard_oxford('cort-maxprob-thr50-2mm')['maps']
-        labels = jhu.labels('HarvardOxford-Cortical.xml')
+        try:
+            labels = atlases.labels('HarvardOxford-Cortical.xml')
+        except Exception:
+            from nilearn import datasets
+
+            name = 'cort-maxprob-thr50-2mm'
+            labels = datasets.fetch_atlas_harvard_oxford(name)['labels']
+
+            # Store them in a dict
+            labels = dict(enumerate(labels))
         print(atlas_fp)
 
         images = []

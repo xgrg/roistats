@@ -1,0 +1,7 @@
+coverage>=4.5
+coveralls
+pandas
+nilearn
+seaborn
+statsmodels
+joblib
