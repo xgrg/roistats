@@ -9,13 +9,11 @@ def _roistats_from_map(map_fp, atlas, func=np.mean):
      m = np.array(nib.load(map_fp).dataobj)
      assert(m.shape == atlas.shape)
      n_labels = list(np.unique(atlas))
-     #n_labels.remove(0)
-     print(n_labels)
      label_values = dict([(label, func(m[atlas==label])) for label in n_labels])
      return label_values
 
 def roistats_from_maps(maps_fp, atlas_fp, subjects=None,
-	   func=np.mean, n_jobs=7):
+	   func=np.mean, n_jobs=8):
      if not subjects is None and len(subjects) != len(maps_fp):
          log.error('Images (%s) and subjects (%s) mismatch in size'
                  %(len(maps_fp), len(subjects)))
@@ -29,8 +27,6 @@ def roistats_from_maps(maps_fp, atlas_fp, subjects=None,
      atlas = np.array(atlas_im.dataobj)
 
      roi_labels = list(np.unique(atlas))
-     #roi_labels.remove(0)
-     print(atlas.shape)
 
      # Run it on every image
      df = Parallel(n_jobs=n_jobs, verbose=1)(\
