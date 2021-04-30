@@ -61,35 +61,33 @@ class RunThemAll(unittest.TestCase):
         data = plotting._unpivot(data, regions, 'region', 'volume').join(cov)
 
         plotting.hist(data, regions[:5], by='apoe', region_colname='region',
-            value_colname='volume', covariates=['age','sex'])
+                      value_colname='volume', covariates=['age','sex'])
 
         data = plotting._pivot(data, cov, regions[1:2], 'region', 'volume')
         plotting.boxplot(regions[1], data, covariates=['sex'], groups=['NC', 'HT', 'HO'])
 
         _ = plotting.lmplot('age', regions[1], data, covariates=['sex'], hue='apoe',
-            order=1)
+                            order=1)
 
         g.estimate(data, regions[1], covariates=['age','sex'],
-            contrasts={'dominant':('NC','carriers')},
-            groups={'NC':['NC'], 'carriers':['HT','HO']})
+                   contrasts={'dominant': ('NC','carriers')},
+                   groups={'NC': ['NC'], 'carriers': ['HT','HO']})
 
         from roistats import permutations as per
-        pval = per.run(regions[1], data, by='apoe', contrast=('NC','carriers'),
-            groups={'NC':['NC'], 'carriers':['HT','HO']})
+        pval = per.run(regions[1], data, by='apoe',
+                       contrast=('NC', 'carriers'),
+                       groups={'NC': ['NC'], 'carriers': ['HT','HO']})
         per.run_all_contrasts(regions[1], data)
 
     def test_002(self):
-        import tempfile
         from roistats import collect
         from nilearn import plotting as nip
         from nilearn import image
         from nilearn import datasets
         from roistats import atlases, plotting
-        import nibabel as nib
         import random
         import numpy as np
         import pandas as pd
-
 
         atlas = datasets.load_mni152_brain_mask()
         atlas_fp = datasets.fetch_atlas_harvard_oxford('cort-maxprob-thr50-2mm')['maps']
@@ -114,7 +112,6 @@ class RunThemAll(unittest.TestCase):
             im.to_filename(f)
             images.append(f)
 
-
         for each in images[:3]:
             nip.plot_roi(atlas_fp, bg_img=each)
 
@@ -122,18 +119,21 @@ class RunThemAll(unittest.TestCase):
         df = df.rename(columns=labels)
 
         df['group'] = df.index
-        df['age'] = df.apply (lambda row: random.random()*5+50, axis=1)
-        df['group'] = df.apply (lambda row: row['group']<len(df)/2, axis=1)
+        df['age'] = df.apply(lambda row: random.random()*5+50, axis=1)
+        df['group'] = df.apply(lambda row: row['group'] < len(df)/2, axis=1)
         df['index'] = df.index
 
         plotting.boxplot('Temporal Pole', df, covariates=['age'], by='group')
 
-        _ = plotting.lmplot('Temporal Pole', 'age', df, covariates=[], hue='group', palette='apoe')
+        _ = plotting.lmplot('Temporal Pole', 'age', df, covariates=[],
+                            hue='group', palette='default')
 
         cov = df[['age', 'group']]
-        melt = pd.melt(df, id_vars='index', value_vars=labels.values(), var_name='region').set_index('index')
+        melt = pd.melt(df, id_vars='index', value_vars=labels.values(),
+                       var_name='region').set_index('index')
         melt = melt.join(cov)
-        plotting.hist(melt, by='group', region_colname='region', covariates=['age'])
+        plotting.hist(melt, by='group', region_colname='region',
+                      covariates=['age'])
 
         print('Removing images')
         import os
