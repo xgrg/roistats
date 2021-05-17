@@ -1,6 +1,9 @@
 from matplotlib import pyplot as plt
 import seaborn as sns
 import pandas as pd
+import numpy as np
+from scipy import stats as st
+from scipy import interpolate as interp
 import logging as log
 from .__init__ import correct
 plt.style.use('classic')
@@ -143,12 +146,11 @@ def boxplot(y, data, by='apoe', covariates=[], palette=None, groups=None):
     box.axes.set_yticklabels(['%.2e' % x for x in box.axes.get_yticks()])
 
     box.axes.set_xlabel('%s groups' % by, fontsize=15, weight='bold')
-    ylabel = '%s' % {False: '',
-                     True: ' (corrected for %s)'
-                           % (' and '.join(covariates))}[len(covariates) != 0]
+    hc = len(covariates) != 0
+    caption = ' (corrected for %s)' % (' and '.join(covariates))
+    ylabel = '%s' % {False: '', True: caption}[hc]
     box.axes.set_ylabel(ylabel)
     box.set_title(roi_name)
-    #box.axes.set_ylim(1.5,4)
 
     # Estimate p-values and add them to the figure
     import itertools
@@ -204,18 +206,22 @@ def lmplot(y, x, data, covariates=['gender', 'age'], hue='apoe', ylim=None,
     for patch in lm.axes[0, 0].patches:
         clr = patch.get_facecolor()
         patch.set_edgecolor(palette[clr])
+
+    # Fix x/y limits and tick labels and figure captions
     ax = lm.axes
     if ylim is None:
         ax[0, 0].set_ylim([df[y].min(), df[y].max()])
     else:
         ax[0, 0].set_ylim(ylim)
     ax[0, 0].set_xlim([df[x].min(), df[x].max()])
+
     # ax[0,0].set_yticklabels(['%.2e'%i for i in ax[0,0].get_yticks()])
     # ax[0,0].set_yticklabels(['%.2e'%i for i in ax[0,0].get_yticks()])
     ax[0, 0].tick_params(labelsize=12)
-    ax[0, 0].set_ylabel('%s%s' % (ylabel, {False: '',
-                                           True: ' (corrected for %s)'
-            % (' and '.join(covariates))}[len(covariates) != 0]), fontsize=13)
+    caption = ' (corrected for %s)' % (' and '.join(covariates))
+    hc = len(covariates) != 0
+    ax[0, 0].set_ylabel('%s%s' % (ylabel, {False: '', True: caption}[hc]),
+                        fontsize=13)
     ax[0, 0].set_xlabel(x, fontsize=15, weight='bold')
     lm.fig.suptitle(roi_name, fontsize=15)
 
@@ -227,7 +233,7 @@ def lmplot(y, x, data, covariates=['gender', 'age'], hue='apoe', ylim=None,
 def _pivot(data, covariates=[], regions=None, region_colname='region',
            value_colname='value'):
 
-    #print regions
+    # print regions
     index_colname = '_ID'
     if regions is None:
         regions = set(data[region_colname].tolist())
@@ -238,7 +244,8 @@ def _pivot(data, covariates=[], regions=None, region_colname='region',
     data2[index_colname] = subject_list
     columns = [index_colname]
     columns.extend(covariates)
-    cov = pd.DataFrame(data2, columns=columns).drop_duplicates().set_index(index_colname)
+    df = pd.DataFrame(data2, columns=columns)
+    cov = df.drop_duplicates().set_index(index_colname)
     piv = piv.join(cov)
 
     return piv
@@ -284,7 +291,8 @@ def hist(data, regions=None, by=None, covariates=[], palette=None,
                 msg = '%s not found in regions! (%s)' % (region, regions)
                 raise Exception(msg)
             piv = piv.rename(columns={region: 'y'})
-            piv['y'] = correct(piv, '%s ~ %s  + 1' % ('y', '+'.join(covariates)))
+            piv['y'] = correct(piv,
+                               '%s ~ %s  + 1' % ('y', '+'.join(covariates)))
 
             if by is not None:
                 groups = list(set(piv[by].tolist()))
@@ -327,8 +335,136 @@ def hist(data, regions=None, by=None, covariates=[], palette=None,
     if ylim is not None:
         plt.ylim(ylim)
 
-    ylabel = '%s %s' % (value_colname, {False: '',
-                                        True: ' (corrected for %s)'
-                                              % (' and '.join(covariates))}[len(covariates) != 0])
+    hc = len(covariates) != 0
+    caption = ' (corrected for %s)' % (' and '.join(covariates))
+    ylabel = '%s %s' % (value_colname, {False: '', True: caption}[hc])
     bar.set(xlabel=region_colname, ylabel=ylabel)
     return pvals
+
+
+def _lighten_color(color, amount=0.5):
+    """
+    Lightens the given color by multiplying (1-luminosity) by the given amount.
+    Input can be matplotlib color string, hex string, or RGB tuple.
+
+    Examples:
+    >> lighten_color('g', 0.3)
+    >> lighten_color('#F034A3', 0.6)
+    >> lighten_color((.3,.55,.1), 0.5)
+    """
+    import matplotlib.colors as mc
+    import colorsys
+    try:
+        c = mc.cnames[color]
+    except Exception:
+        c = color
+    c = colorsys.rgb_to_hls(*mc.to_rgb(c))
+    return colorsys.hls_to_rgb(c[0], 1 - amount * (1 - c[1]), c[2])
+
+
+def sliding_window(y, by, x, data, palette=None, groups=None, savefig=None,
+                   covariates=[], ci=None, quantile=None):
+
+    if quantile and ci:
+        raise Exception('quantile and ci cannot be both defined.')
+
+    values = set(data[by]) if groups is None else groups
+
+    if palette:
+        ec = {k: _lighten_color(v, 1.2) for k, v in palette.items()}
+    else:
+        palette = {v: None for v in values}
+
+    # Filter outliers (outside [1st-99th percentiles])
+    q10 = np.quantile(data[y], 0.01)
+    q90 = np.quantile(data[y], 0.99)
+    data = pd.DataFrame(data.query('%s > @q10 & %s < @q90' % (y, y)),
+                        copy=True)
+
+    if len(covariates) != 0:
+        data[y] = correct(data, '%s ~ %s  + 1' % (y, '+'.join(covariates)))
+
+    q25, q75, x_val = {}, {}, {}
+    for i, each in enumerate(values):
+        df = data.query('%s == "%s"' % (by, each))
+        for c in np.arange(0.1, 0.9, 0.05):
+            a, b = np.quantile(df[x], c - 0.1), np.quantile(df[x], c + 0.1)
+            x_val.setdefault(each, []).append((a+b)/2.0)
+            w = df.query('%s < @b & %s > @a' % (x, x))
+
+            if quantile:
+                a1 = np.quantile(w[y], 0.5 - quantile/100.0)
+                a2 = np.quantile(w[y], 0.5 + quantile/100.0)
+            else:
+                a1, a2 = st.t.interval(ci/100.0, len(w[y])-1,
+                                       loc=np.mean(w[y]),
+                                       scale=st.sem(w[y]))
+            q25.setdefault(each, []).append(a1)
+            q75.setdefault(each, []).append(a2)
+
+    print(a, b-a, len(w), len(w.query('apoe == "HO"')),
+          len(w.query('apoe == "HT"')), len(w.query('apoe == "NC"')))
+
+    for i, each in enumerate(values):
+        df = data.query('%s == "%s"' % (by, each))
+        sns.scatterplot(x='age', y=y, data=df, fc=palette[each], ec='gray', lw=1)
+
+    for i, each in enumerate(values):
+        x_new = np.linspace(min(x_val[each]), max(x_val[each]), 300)
+        y25 = interp.make_interp_spline(x_val[each], q25[each], k=2)(x_new)
+        y75 = interp.make_interp_spline(x_val[each], q75[each], k=2)(x_new)
+
+        sns.lineplot(x=x_new, y=y25, color=palette[each], alpha=0.5)
+        sns.lineplot(x=x_new, y=y75, color=palette[each], alpha=0.5)
+        plt.fill_between(x_new, y25, y75, alpha=0.5, color=palette[each])
+
+    if savefig:
+        plt.savefig(savefig)
+
+
+def piecewise_lmplot(y, by, x, data, palette=None, groups=None, savefig=None,
+                     covariates=[], ci=None, quantile=None, alpha=0.25, s=5,
+                     lw=2, order=2):
+
+    import pwlf
+    if quantile and ci:
+        raise Exception('quantile and ci cannot be both defined.')
+
+    values = set(data[by]) if groups is None else groups
+
+    if palette:
+        fc = {k: _lighten_color(v, 0.8) for k, v in palette.items()}
+    else:
+        fc = {v: None for v in values}
+        palette = {v: None for v in values}
+
+    # Filter outliers (outside [1st-99th percentiles])
+    q10 = np.quantile(data[y], 0.01)
+    q90 = np.quantile(data[y], 0.99)
+    data = pd.DataFrame(data.query('%s > @q10 & %s < @q90' % (y, y)),
+                        copy=True)
+
+    if len(covariates) != 0:
+        data[y] = correct(data, '%s ~ %s  + 1' % (y, '+'.join(covariates)))
+
+    x_hat, y_hat = {}, {}
+
+    for i, each in enumerate(values):
+        df = data.query('%s == "%s"' % (by, each))
+
+        my_pwlf = pwlf.PiecewiseLinFit(df[x], df[y])
+        breaks = my_pwlf.fit(order)
+        x_hat[each] = np.linspace(df[x].min(), df[x].max(), 100)
+        y_hat[each] = my_pwlf.predict(x_hat[each])
+
+    for i, each in enumerate(values):
+        df = data.query('%s == "%s"' % (by, each))
+        sns.scatterplot(x='age', y=y, data=df, fc=fc[each], ec=palette[each],
+                        linewidth=lw, alpha=alpha, s=s)
+
+    for i, each in enumerate(values):
+        sns.lineplot(x=x_hat[each], y=y_hat[each], color=palette[each],
+                     linewidth=2*lw)
+
+    if savefig:
+        plt.savefig(savefig)

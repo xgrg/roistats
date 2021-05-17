@@ -5,3 +5,4 @@ nilearn
 seaborn
 statsmodels
 joblib
+pwlf
