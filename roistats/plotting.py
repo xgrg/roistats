@@ -468,3 +468,54 @@ def piecewise_lmplot(y, by, x, data, palette=None, groups=None, savefig=None,
 
     if savefig:
         plt.savefig(savefig)
+
+
+def smoothed_lmplot(y, by, x, data, palette=None, groups=None, savefig=None,
+                     covariates=[], ci=None, quantile=None, alpha=0.25, s=5,
+                     lw=2, sigma=0.1, ylim=None, ylabel=''):
+
+    if quantile and ci:
+        raise Exception('quantile and ci cannot be both defined.')
+
+    values = set(data[by]) if groups is None else groups
+
+    if palette:
+        fc = {k: _lighten_color(v, 0.8) for k, v in palette.items()}
+    else:
+        fc = {v: None for v in values}
+        palette = {v: None for v in values}
+
+    # Filter outliers (outside [1st-99th percentiles])
+    q10 = np.quantile(data[y], 0.01)
+    q90 = np.quantile(data[y], 0.99)
+    data = pd.DataFrame(data.query('%s > @q10 & %s < @q90' % (y, y)),
+                        copy=True)
+
+    if len(covariates) != 0:
+        data[y] = correct(data, '%s ~ %s  + 1' % (y, '+'.join(covariates)))
+
+    x_hat, y_hat = {}, {}
+
+    for i, each in enumerate(values):
+        df = data.query('%s == "%s"' % (by, each))
+        x_hat[each] = np.linspace(df[x].min(), df[x].max(), 1500)
+
+        delta_x = x_hat[each][:, None] - np.array(df[x])
+        weights = np.exp(-delta_x*delta_x / (2*sigma*sigma)) / (np.sqrt(2*np.pi) * sigma)
+        weights /= np.sum(weights, axis=1, keepdims=True)
+        y_hat[each] = np.dot(weights, df[y])
+
+    for i, each in enumerate(values):
+        df = data.query('%s == "%s"' % (by, each))
+        sns.scatterplot(x='age', y=y, data=df, fc=fc[each], ec=palette[each],
+                        linewidth=lw, alpha=alpha, s=s)
+
+    for i, each in enumerate(values):
+        sns.lineplot(x=x_hat[each], y=y_hat[each], color=palette[each],
+                     linewidth=2*lw)
+
+
+
+
+    if savefig:
+        plt.savefig(savefig)
