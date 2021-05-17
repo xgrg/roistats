@@ -1,39 +1,41 @@
 #! /usr/bin/env python
 import argparse
-import sys
 import string
-import os.path as op
 import numpy as np
-sys.path.append(op.join(op.expanduser('~'), 'git', 'alfa'))
 from roistats import collect
 import json
+import logging as log
+
+
+desc = 'Collect ROI stats over a set of images and store them in an Excel '\
+        'table.'
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Collect ROI stats '\
-            'over a set of images and store them in an Excel table.')
+    parser = argparse.ArgumentParser(description=desc)
     parser.add_argument('images', nargs='+', help='Input images')
     parser.add_argument('-o', '--output', required=True,
-        help='Excel file to store the output')
+                        help='Excel file to store the output')
     parser.add_argument('--roi', required=True,
-        help='Atlas (or any label volume) containing the reference regions')
+                        help='Atlas (or any label volume) containing the '\
+                             'reference regions')
     parser.add_argument('--labels',
-        help='Textfile with label lookup table')
+                        help='Textfile with label lookup table')
     parser.add_argument('--n_jobs', default=-1,
-        help='Number of parallel jobs')
+                        help='Number of parallel jobs')
     parser.add_argument('--function', default='mean',
-        help = 'numpy function used to get values')
+                        help='numpy function used to get values')
     parser.add_argument('--verbose', action='store_true',
-        help='Be verbose')
+                        help='Be verbose')
     opts = parser.parse_args()
 
     if opts.verbose:
         log.basicConfig(level=log.INFO)
 
     n_jobs = string.atoi(opts.n_jobs)
-    table = collect.roistats_from_maps(opts.images, opts.roi, opts.images, opts.labels,
-            getattr(np, opts.function), n_jobs)
+    table = collect.roistats_from_maps(opts.images, opts.roi, opts.images,
+                                       opts.labels,
+                                       getattr(np, opts.function),
+                                       n_jobs)
     table.to_excel(opts.output)
     d = {'images': opts.images, 'atlas': opts.roi}
     json.dump(d, open(opts.output.replace('.xls', '.json'), 'w'))
-
-

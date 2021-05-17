@@ -1,5 +1,5 @@
 
-def correct(df, model='roi ~ 1 + gender + age'): #educyears + apo' ):
+def correct(df, model='roi ~ 1 + gender + age'):  # educyears + apo' ):
     ''' Adjusts a variable according to a given model'''
     import numpy as np
     from statsmodels.formula.api import ols
