@@ -18,8 +18,6 @@ if __name__ == '__main__':
     parser.add_argument('--roi', required=True,
                         help='Atlas (or any label volume) containing the '\
                              'reference regions')
-    parser.add_argument('--labels',
-                        help='Textfile with label lookup table')
     parser.add_argument('--n_jobs', default=-1,
                         help='Number of parallel jobs')
     parser.add_argument('--function', default='mean',
@@ -32,8 +30,7 @@ if __name__ == '__main__':
         log.basicConfig(level=log.INFO)
 
     n_jobs = string.atoi(opts.n_jobs)
-    table = collect.roistats_from_maps(opts.images, opts.roi, opts.images,
-                                       opts.labels,
+    table = collect.roistats_from_maps(opts.images, opts.roi, opts.images,                                       
                                        getattr(np, opts.function),
                                        n_jobs)
     table.to_excel(opts.output)
