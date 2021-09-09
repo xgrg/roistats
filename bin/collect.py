@@ -29,8 +29,8 @@ if __name__ == '__main__':
     if opts.verbose:
         log.basicConfig(level=log.INFO)
 
-    n_jobs = string.atoi(opts.n_jobs)
-    table = collect.roistats_from_maps(opts.images, opts.roi, opts.images,                                       
+    n_jobs = int(opts.n_jobs)
+    table = collect.roistats_from_maps(opts.images, opts.roi, opts.images,
                                        getattr(np, opts.function),
                                        n_jobs)
     table.to_excel(opts.output)
