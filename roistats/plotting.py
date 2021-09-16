@@ -88,7 +88,8 @@ def sort_groups(data, by, order):
     return d
 
 
-def boxplot(y, data, by='apoe', covariates=[], palette=None, groups=None):
+def boxplot(y, data, by='apoe', covariates=[], palette=None, groups=None,
+            facecolor='white', savefig=None):
     '''`y` should be a variable name, `data` is the data, `covariates` lists
     the various nuisance factors, `by` is the variable setting the different
     groups.'''
@@ -138,11 +139,13 @@ def boxplot(y, data, by='apoe', covariates=[], palette=None, groups=None):
     if len(covariates) != 0:
         df[y] = correct(df, '%s ~ %s  + 1' % (y, '+'.join(covariates)))
 
+    fig, ax = plt.subplots()
     box = sns.boxplot(x='_group', y='y', data=df, showfliers=False,
-                      palette=palette, order=list(groups.keys()))
+                      palette=palette, order=list(groups.keys()),
+                      ax=ax)
     box = sns.swarmplot(x='_group', y='y', data=df,  # palette=palette,
                         edgecolor='gray', color='0.8', linewidth=1,
-                        order=list(groups.keys()))
+                        order=list(groups.keys()), ax=ax)
     box.axes.set_yticklabels(['%.2e' % x for x in box.axes.get_yticks()])
 
     box.axes.set_xlabel('%s groups' % by, fontsize=15, weight='bold')
@@ -160,6 +163,8 @@ def boxplot(y, data, by='apoe', covariates=[], palette=None, groups=None):
         pval = _plot_significance(df, i1, i2, by, covariates, groups)
         pvals.append((pval, (i1, i2)))
 
+    if savefig is not None:
+        plt.savefig(savefig, facecolor=facecolor)
     return pvals
 
 
