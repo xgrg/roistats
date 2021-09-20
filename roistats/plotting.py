@@ -206,7 +206,7 @@ def lmplot(y, x, data, covariates=['gender', 'age'], hue='apoe', ylim=None,
                     sharey=False, order=order, palette=palette,
                     scatter_kws={'linewidths': lws, 's': s,
                                  'edgecolors': '#333333'},
-                    line_kws={'linewidth': lwl}, legend=True)
+                    line_kws={'linewidth': lwl}, legend=False)
 
     for patch in lm.axes[0, 0].patches:
         clr = patch.get_facecolor()
@@ -518,9 +518,118 @@ def smoothed_lmplot(y, by, x, data, palette=None, groups=None, savefig=None,
     for i, each in enumerate(values):
         sns.lineplot(x=x_hat[each], y=y_hat[each], color=palette[each],
                      linewidth=2*lw)
-
-
-
-
     if savefig:
         plt.savefig(savefig)
+
+
+def _svg_parse_(path):
+    import re
+    import numpy as np
+    from matplotlib.path import Path
+
+    commands = {'M': Path.MOVETO,
+                'L': Path.LINETO,
+                'Q': Path.CURVE3,
+                'C': Path.CURVE4,
+                'Z': Path.CLOSEPOLY}
+    vertices = []
+    codes = []
+    cmd_values = re.split("([A-Za-z])", path)[1:]  # Split over commands.
+    for cmd, values in zip(cmd_values[::2], cmd_values[1::2]):
+        # Numbers are separated either by commas, or by +/- signs (but not at
+        # the beginning of the string).
+        if cmd.upper() in ['M', 'L', 'Q', 'C']:
+            points = [e.split(',') for e in values.split(' ') if e != '']
+            points = [list(map(float, each)) for each in points]
+        else:
+            points = [(0., 0.)]
+        points = np.reshape(points, (-1, 2))
+        if cmd.islower():
+            points += vertices[-1][-1]
+        for i in range(0, len(points)):
+            codes.append(commands[cmd.upper()])
+        vertices.append(points)
+    return np.array(codes), np.concatenate(vertices)
+
+
+def plot_dkt(data, cmap='Spectral', background='k', edgecolor='w',
+             figsize=(15, 15), bordercolor='w'):
+    import matplotlib.pyplot as plt
+    import matplotlib.patches as patches
+    from matplotlib.path import Path
+    import roistats
+    import os.path as op
+    from glob import glob
+    import matplotlib
+
+    cmap = matplotlib.cm.get_cmap(cmap)
+    vmin, vmax = min(data.values()), max(data.values())
+    norm = matplotlib.colors.Normalize(vmin=vmin, vmax=vmax)
+
+    wd = op.join(op.dirname(roistats.__file__), 'data', 'dkt')
+
+    whole_reg = ['lateral_left', 'medial_left', 'lateral_right',
+                 'medial_right']
+    files = [open(op.join(wd, e)).read() for e in whole_reg]
+
+    # A figure is created by the joint dimensions of the whole-brain outlines
+    codes, verts = _svg_parse_(' '.join(files))
+
+    xmin, ymin = verts.min(axis=0) - 1
+    xmax, ymax = verts.max(axis=0) + 1
+    yoff = 0
+    ymin += yoff
+    verts = np.array([(x, y + yoff) for x, y in verts])
+
+    fig = plt.figure(figsize=figsize, facecolor=background)
+    ax = fig.add_axes([0, 0, 1, 1], frameon=False, aspect=1,
+                      xlim=(xmin, xmax),  # centering
+                      ylim=(ymax, ymin),  # centering, upside down
+                      xticks=[], yticks=[])  # no ticks
+
+    # Each region is outlined
+    reg = glob(op.join(wd, '*_left'))
+    reg.extend(glob(op.join(wd, '*_right')))
+    files = [open(e).read() for e in reg]
+
+    codes, verts = _svg_parse_(' '.join(files))
+    path = Path(verts, codes)
+
+    ax.add_patch(patches.PathPatch(path, facecolor=bordercolor,
+                                   edgecolor=edgecolor, lw=1))
+
+    # For every region with a provided value, we draw a patch with the color
+    # matching the normalized scale
+    for k, v in data.items():
+        fp = op.join(wd, k)
+        if op.isfile(fp):
+            p = open(fp).read()
+            codes, verts = _svg_parse_(p)
+            path = Path(verts, codes)
+            c = cmap(norm(v))
+            ax.add_patch(patches.PathPatch(path, facecolor=c,
+                                           edgecolor=edgecolor, lw=1))
+        # else:
+        #     print('%s not found' % fp)
+
+    # DKT regions with no provided values are rendered in gray
+    data_regions = list(data.keys())
+    dkt_regions = [op.splitext(op.basename(e))[0] for e in reg]
+    NA = set(dkt_regions).difference(data_regions).difference(whole_reg)
+
+    files = [open(op.join(wd, e)).read() for e in NA]
+    codes, verts = _svg_parse_(' '.join(files))
+    path = Path(verts, codes)
+
+    ax.add_patch(patches.PathPatch(path, facecolor='gray',
+                                   edgecolor=edgecolor, lw=1))
+    # A colorbar is added
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes('right', size='1%', pad=0.1)
+
+    cb1 = matplotlib.colorbar.ColorbarBase(cax, cmap=cmap,
+                                           norm=norm,
+                                           orientation='vertical')
+    cb1.ax.tick_params(labelcolor=edgecolor)
+    plt.show()
