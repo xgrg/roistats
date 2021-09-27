@@ -1,7 +1,7 @@
 coverage>=4.5
 coveralls
 pandas
-nilearn
+nilearn==0.8.0
 seaborn
 statsmodels
 joblib
