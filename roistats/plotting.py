@@ -633,3 +633,80 @@ def plot_dkt(data, cmap='Spectral', background='k', edgecolor='w',
                                            orientation='vertical')
     cb1.ax.tick_params(labelcolor=edgecolor)
     plt.show()
+
+
+def plot_jhu(data, cmap='Spectral', background='k', edgecolor='w',
+             figsize=(15, 15), bordercolor='w'):
+    import matplotlib.pyplot as plt
+    import matplotlib.patches as patches
+    from matplotlib.path import Path
+    import roistats
+    import os.path as op
+    from glob import glob
+    import matplotlib
+
+    cmap = matplotlib.cm.get_cmap(cmap)
+    vmin, vmax = min(data.values()), max(data.values())
+    norm = matplotlib.colors.Normalize(vmin=vmin, vmax=vmax)
+
+    wd = op.join(op.dirname(roistats.__file__), 'data', 'jhu')
+
+    whole_reg = ['NA']
+    files = [open(op.join(wd, e)).read() for e in whole_reg]
+
+    # A figure is created by the joint dimensions of the whole-brain outlines
+    codes, verts = _svg_parse_(' '.join(files))
+
+    xmin, ymin = verts.min(axis=0) - 1
+    xmax, ymax = verts.max(axis=0) + 1
+
+    fig = plt.figure(figsize=figsize, facecolor=background)
+    ax = fig.add_axes([0, 0, 1, 1], frameon=False, aspect=1,
+                      xlim=(xmin, xmax),  # centering
+                      ylim=(ymax, ymin),  # centering, upside down
+                      xticks=[], yticks=[])  # no ticks
+
+    # Each region is outlined
+    reg = glob(op.join(wd, '*'))
+    # reg.extend(glob(op.join(wd, '* R')))
+    files = [open(e).read() for e in reg]
+
+    codes, verts = _svg_parse_(' '.join(files))
+    path = Path(verts, codes)
+
+    ax.add_patch(patches.PathPatch(path, facecolor=bordercolor,
+                                   edgecolor=edgecolor, lw=1))
+
+    # For every region with a provided value, we draw a patch with the color
+    # matching the normalized scale
+    for k, v in data.items():
+        fp = op.join(wd, k)
+        if op.isfile(fp):
+            p = open(fp).read()
+            codes, verts = _svg_parse_(p)
+            path = Path(verts, codes)
+            c = cmap(norm(v))
+            ax.add_patch(patches.PathPatch(path, facecolor=c,
+                                           edgecolor=edgecolor, lw=1))
+        # else:
+        #     print('%s not found' % fp)
+
+    # JHU regions with no provided values are rendered in gray
+    NA = ['CSF']
+
+    files = [open(op.join(wd, e)).read() for e in NA]
+    codes, verts = _svg_parse_(' '.join(files))
+    path = Path(verts, codes)
+
+    ax.add_patch(patches.PathPatch(path, facecolor='gray',
+                                   edgecolor=edgecolor, lw=1))
+    # A colorbar is added
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes('right', size='1%', pad=0.1)
+
+    cb1 = matplotlib.colorbar.ColorbarBase(cax, cmap=cmap,
+                                           norm=norm,
+                                           orientation='vertical')
+    cb1.ax.tick_params(labelcolor=edgecolor)
+    plt.show()
